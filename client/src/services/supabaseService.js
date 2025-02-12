@@ -217,15 +217,7 @@ const contentService = {
     try {
       const { data, error } = await supabase
         .from('modules')
-        .select(`
-          *,
-          sections (
-            id,
-            title,
-            content,
-            order
-          )
-        `)
+        .select('*, sections(id, title, content, order_index)')
         .order('created_at', { ascending: false });
 
       if (error) throw error;

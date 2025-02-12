@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import { authService } from '../services/supabaseService';
 
-export function useAuth() {
+const AuthContext = createContext({});
+
+export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -62,7 +64,7 @@ export function useAuth() {
     }
   };
 
-  return {
+  const value = {
     session,
     loading,
     user: session?.user ?? null,
@@ -70,4 +72,18 @@ export function useAuth() {
     signUp,
     signOut
   };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
 }

@@ -1,35 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
+import { CircularProgress, LinearProgress } from '@mui/material';
 import { progressService } from '../../services/supabaseService';
+import { useAuth } from '../../hooks/useAuth';
 import './UserProgress.css';
 
-const UserProgress = ({ userId }) => {
-  const [progress, setProgress] = useState(null);
-  const [loading, setLoading] = useState(true);
+const UserProgress = () => {
+  const [progress, setProgress] = React.useState(null);
+  const [loading, setLoading] = React.useState(true);
+  const { session } = useAuth();
 
-  useEffect(() => {
-    loadProgress();
-  }, [userId]);
+  React.useEffect(() => {
+    if (session?.user?.id) {
+      loadProgress();
+    }
+  }, [session]);
 
   const loadProgress = async () => {
     try {
-      if (!userId) {
+      if (!session?.user?.id) {
         console.error('UserId não fornecido para UserProgress');
         setLoading(false);
         return;
       }
 
-      const { data, error } = await progressService.getStudentProgress(userId);
+      const { data, error } = await progressService.getStudentProgress(session.user.id);
       if (error) throw error;
 
-      const processedProgress = data?.map(item => ({
-        moduleId: item.module?.id,
-        moduleTitle: item.module?.title,
-        sectionId: item.section?.id,
-        sectionTitle: item.section?.title,
-        progress: item.progress || 0,
-        status: item.status || 'not_started',
-        pointsEarned: item.points_earned || 0
-      })) || [];
+      const processedProgress = data || {};
 
       setProgress(processedProgress);
     } catch (err) {
@@ -47,90 +44,105 @@ const UserProgress = ({ userId }) => {
     );
   }
 
-  if (!progress) {
-    return null;
-  }
+  if (!progress) return null;
+
+  const {
+    level,
+    xp,
+    xpForNextLevel,
+    points,
+    streak_days,
+    badges = [],
+    achievements = []
+  } = progress;
+
+  const xpProgress = (xp / xpForNextLevel) * 100;
+
+  const recentBadges = badges.slice(0, 3);
+  const recentAchievements = achievements.slice(0, 3);
 
   return (
     <div className="user-progress">
-      <div className="progress-header">
-        <h2>Seu Progresso</h2>
-        <div className="overall-progress">
-          <div className="progress-circle">
-            <svg viewBox="0 0 36 36">
-              <path
-                d="M18 2.0845
-                  a 15.9155 15.9155 0 0 1 0 31.831
-                  a 15.9155 15.9155 0 0 1 0 -31.831"
-                fill="none"
-                stroke="rgba(255, 255, 255, 0.1)"
-                strokeWidth="3"
-              />
-              <path
-                d="M18 2.0845
-                  a 15.9155 15.9155 0 0 1 0 31.831
-                  a 15.9155 15.9155 0 0 1 0 -31.831"
-                fill="none"
-                stroke="#e50914"
-                strokeWidth="3"
-                strokeDasharray={`${progress.overallProgress}, 100`}
-              />
-            </svg>
-            <span>{progress.overallProgress}%</span>
+      <div className="progress-section level-section">
+        <div className="level-display">
+          <CircularProgress
+            variant="determinate"
+            value={xpProgress}
+            size={80}
+            thickness={4}
+            sx={{
+              color: '#00ff00',
+              '& .MuiCircularProgress-circle': {
+                strokeLinecap: 'round',
+              },
+            }}
+          />
+          <div className="level-number">
+            <span>{level}</span>
           </div>
-          <div className="progress-stats">
-            <div className="stat">
-              <span>{progress.completedModules}</span>
-              <label>Módulos Concluídos</label>
-            </div>
-            <div className="stat">
-              <span>{progress.totalHours}h</span>
-              <label>Horas de Estudo</label>
-            </div>
+        </div>
+        <div className="level-info">
+          <h3>Nível {level}</h3>
+          <div className="xp-bar">
+            <LinearProgress
+              variant="determinate"
+              value={xpProgress}
+              sx={{
+                height: 10,
+                borderRadius: 5,
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                '& .MuiLinearProgress-bar': {
+                  borderRadius: 5,
+                  background: 'linear-gradient(90deg, #00ff00, #00cc00)',
+                },
+              }}
+            />
+            <span className="xp-text">
+              {xp} / {xpForNextLevel} XP
+            </span>
           </div>
         </div>
       </div>
 
-      <div className="current-modules">
-        <h3>Módulos em Andamento</h3>
-        {progress.currentModules?.length > 0 ? (
-          <div className="modules-list">
-            {progress.currentModules.map(module => (
-              <div key={module.id} className="module-progress-item">
-                <div className="module-info">
-                  <h4>{module.title}</h4>
-                  <div className="progress-bar">
-                    <div 
-                      className="progress-fill"
-                      style={{ width: `${module.progress}%` }}
-                    ></div>
-                  </div>
-                </div>
-                <span className="progress-percentage">{module.progress}%</span>
+      <div className="progress-section stats-section">
+        <div className="stat-item">
+          <span className="stat-label">Pontos</span>
+          <span className="stat-value">{points}</span>
+        </div>
+        <div className="stat-item">
+          <span className="stat-label">Sequência</span>
+          <span className="stat-value">🔥 {streak_days} dias</span>
+        </div>
+      </div>
+
+      {recentBadges.length > 0 && (
+        <div className="progress-section badges-section">
+          <h3>Medalhas Recentes</h3>
+          <div className="badges-grid">
+            {recentBadges.map(badge => (
+              <div key={badge.id} className="badge-item" title={badge.description}>
+                <span className="badge-icon">{badge.icon}</span>
+                <span className="badge-name">{badge.name}</span>
               </div>
             ))}
           </div>
-        ) : (
-          <p className="no-modules">
-            Você ainda não começou nenhum módulo.
-            <br />
-            <a href="/modules">Explorar módulos</a>
-          </p>
-        )}
-      </div>
+        </div>
+      )}
 
-      {progress.achievements?.length > 0 && (
-        <div className="recent-achievements">
+      {recentAchievements.length > 0 && (
+        <div className="progress-section achievements-section">
           <h3>Conquistas Recentes</h3>
-          <div className="achievements-list">
-            {progress.achievements.map(achievement => (
-              <div key={achievement.id} className="achievement-item">
-                <div className="achievement-icon">
-                  <i className={achievement.icon}></i>
-                </div>
+          <div className="achievements-grid">
+            {recentAchievements.map(achievement => (
+              <div 
+                key={achievement.id} 
+                className="achievement-item"
+                title={achievement.description}
+              >
+                <span className="achievement-icon">{achievement.icon}</span>
                 <div className="achievement-info">
-                  <h4>{achievement.title}</h4>
-                  <p>{achievement.description}</p>
+                  <span className="achievement-name">{achievement.name}</span>
+                  <span className="achievement-points">+{achievement.points} pontos</span>
                 </div>
               </div>
             ))}

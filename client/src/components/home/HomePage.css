@@ -1,79 +1,189 @@
 .home-page {
+  padding: 2rem;
   min-height: 100vh;
-  background-color: #141414;
-  color: #fff;
-  padding-bottom: 4rem;
+  background-color: #0a0a0a;
+  color: #ffffff;
 }
 
 .home-header {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 1000;
-  padding: 1rem 4%;
-  background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  transition: background-color 0.3s;
+  margin-bottom: 2rem;
+  position: relative;
 }
 
-.home-header.scrolled {
-  background-color: #141414;
+.home-header h1 {
+  font-size: 2.5rem;
+  margin-bottom: 1.5rem;
+  background: linear-gradient(45deg, #00ff00, #00cc00);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  text-shadow: 0 0 10px rgba(0, 255, 0, 0.3);
 }
 
-.loading-screen {
-  height: 100vh;
+.content-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.loading-container {
   display: flex;
-  flex-direction: column;
   justify-content: center;
   align-items: center;
-  background-color: #141414;
-  color: #fff;
+  height: 100vh;
 }
 
 .loader {
   width: 50px;
   height: 50px;
-  border: 3px solid #333;
-  border-top-color: #e50914;
+  border: 5px solid #0a0a0a;
+  border-top: 5px solid #00ff00;
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
 
 @keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .search-results {
-  padding: 6rem 4% 2rem;
+  margin-top: 2rem;
 }
 
 .search-results h2 {
-  font-size: 1.8rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1rem;
+  color: #00ff00;
 }
 
-.results-grid {
+.modules-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 2rem;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-top: 1rem;
 }
 
+.user-stats {
+  background: rgba(0, 255, 0, 0.1);
+  border: 1px solid rgba(0, 255, 0, 0.2);
+  border-radius: 10px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.level-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.xp-bar {
+  width: 100%;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.xp-progress {
+  height: 100%;
+  background: linear-gradient(90deg, #00ff00, #00cc00);
+  border-radius: 5px;
+  transition: width 0.3s ease;
+}
+
+.streak-info {
+  padding: 0.5rem 1rem;
+  background: rgba(255, 165, 0, 0.2);
+  border-radius: 5px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-left: 1rem;
+}
+
+.notifications-preview {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: 300px;
+  max-height: 400px;
+  overflow-y: auto;
+  background: rgba(10, 10, 10, 0.95);
+  border: 1px solid rgba(0, 255, 0, 0.2);
+  border-radius: 10px;
+  padding: 1rem;
+  z-index: 1000;
+  box-shadow: 0 4px 12px rgba(0, 255, 0, 0.1);
+}
+
+.notification-item {
+  padding: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  transition: background-color 0.2s ease;
+}
+
+.notification-item:last-child {
+  border-bottom: none;
+}
+
+.notification-item:hover {
+  background: rgba(0, 255, 0, 0.1);
+}
+
+.notification-title {
+  font-weight: bold;
+  color: #00ff00;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.notification-message {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.8);
+  margin: 0;
+}
+
+/* Animações */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.notification-item {
+  animation: fadeIn 0.3s ease forwards;
+}
+
+/* Responsividade */
 @media (max-width: 768px) {
-  .home-header {
-    padding: 0.5rem 4%;
+  .home-page {
+    padding: 1rem;
   }
 
-  .search-results {
-    padding: 4rem 4% 1rem;
+  .home-header h1 {
+    font-size: 2rem;
   }
 
-  .results-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  .user-stats {
+    flex-direction: column;
     gap: 1rem;
+  }
+
+  .streak-info {
+    margin-left: 0;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .notifications-preview {
+    width: 100%;
+    max-width: 300px;
+  }
+
+  .modules-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   }
 }

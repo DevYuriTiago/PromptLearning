@@ -1,17 +1,52 @@
 import React, { useState, useEffect } from 'react';
-import { adminService } from '../../services/supabaseService';
-import './UserManager.css';
+import {
+  Box,
+  Paper,
+  Typography,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Chip,
+  useTheme,
+  TablePagination,
+} from '@mui/material';
+import {
+  Edit as EditIcon,
+  Delete as DeleteIcon,
+  Add as AddIcon,
+  Lock as LockIcon,
+  LockOpen as LockOpenIcon,
+} from '@mui/icons-material';
+import { useSnackbar } from 'notistack';
+import { userService } from '../../services/userService';
 
 const UserManager = () => {
+  const theme = useTheme();
+  const { enqueueSnackbar } = useSnackbar();
   const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedUsers, setSelectedUsers] = useState([]);
-  const [showAddUser, setShowAddUser] = useState(false);
-  const [newUser, setNewUser] = useState({
+  const [openDialog, setOpenDialog] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [formData, setFormData] = useState({
     email: '',
+    role: 'student',
     name: '',
-    role: 'student'
+    status: 'active',
   });
 
   useEffect(() => {
@@ -20,253 +55,292 @@ const UserManager = () => {
 
   const loadUsers = async () => {
     try {
-      const usersList = await adminService.getAllUsers();
-      setUsers(usersList);
+      const data = await userService.getUsers();
+      setUsers(data);
     } catch (error) {
       console.error('Erro ao carregar usuários:', error);
-    } finally {
-      setLoading(false);
+      enqueueSnackbar('Erro ao carregar usuários', { variant: 'error' });
     }
   };
 
-  const handleSearch = (e) => {
-    setSearchTerm(e.target.value);
-  };
-
-  const filteredUsers = users.filter(user => 
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const handleSelectUser = (userId) => {
-    setSelectedUsers(prev => 
-      prev.includes(userId)
-        ? prev.filter(id => id !== userId)
-        : [...prev, userId]
-    );
-  };
-
-  const handleSelectAll = () => {
-    if (selectedUsers.length === filteredUsers.length) {
-      setSelectedUsers([]);
+  const handleOpenDialog = (user = null) => {
+    if (user) {
+      setEditingUser(user);
+      setFormData({
+        email: user.email,
+        role: user.role,
+        name: user.name,
+        status: user.status,
+      });
     } else {
-      setSelectedUsers(filteredUsers.map(user => user.id));
+      setEditingUser(null);
+      setFormData({
+        email: '',
+        role: 'student',
+        name: '',
+        status: 'active',
+      });
     }
+    setOpenDialog(true);
   };
 
-  const handleAddUser = async (e) => {
-    e.preventDefault();
+  const handleCloseDialog = () => {
+    setOpenDialog(false);
+    setEditingUser(null);
+    setFormData({
+      email: '',
+      role: 'student',
+      name: '',
+      status: 'active',
+    });
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleSubmit = async () => {
     try {
-      await adminService.createUser(newUser);
-      setShowAddUser(false);
-      setNewUser({ email: '', name: '', role: 'student' });
+      if (editingUser) {
+        await userService.updateUser(editingUser.id, formData);
+        enqueueSnackbar('Usuário atualizado com sucesso', { variant: 'success' });
+      } else {
+        await userService.createUser(formData);
+        enqueueSnackbar('Usuário criado com sucesso', { variant: 'success' });
+      }
+      handleCloseDialog();
       loadUsers();
     } catch (error) {
-      console.error('Erro ao adicionar usuário:', error);
+      console.error('Erro ao salvar usuário:', error);
+      enqueueSnackbar('Erro ao salvar usuário', { variant: 'error' });
     }
   };
 
-  const handleUpdateRole = async (userId, newRole) => {
-    try {
-      await adminService.updateUserRole(userId, newRole);
-      loadUsers();
-    } catch (error) {
-      console.error('Erro ao atualizar função:', error);
-    }
-  };
-
-  const handleDeleteUsers = async () => {
-    if (window.confirm('Tem certeza que deseja excluir os usuários selecionados?')) {
+  const handleDelete = async (user) => {
+    if (window.confirm('Tem certeza que deseja excluir este usuário?')) {
       try {
-        await Promise.all(selectedUsers.map(id => adminService.deleteUser(id)));
-        setSelectedUsers([]);
+        await userService.deleteUser(user.id);
+        enqueueSnackbar('Usuário excluído com sucesso', { variant: 'success' });
         loadUsers();
       } catch (error) {
-        console.error('Erro ao excluir usuários:', error);
+        console.error('Erro ao excluir usuário:', error);
+        enqueueSnackbar('Erro ao excluir usuário', { variant: 'error' });
       }
     }
   };
 
-  if (loading) {
-    return (
-      <div className="loading-screen">
-        <div className="loader"></div>
-        <p>Carregando usuários...</p>
-      </div>
-    );
-  }
+  const handleToggleStatus = async (user) => {
+    try {
+      const newStatus = user.status === 'active' ? 'inactive' : 'active';
+      await userService.updateUser(user.id, { ...user, status: newStatus });
+      enqueueSnackbar('Status do usuário atualizado com sucesso', { variant: 'success' });
+      loadUsers();
+    } catch (error) {
+      console.error('Erro ao atualizar status do usuário:', error);
+      enqueueSnackbar('Erro ao atualizar status do usuário', { variant: 'error' });
+    }
+  };
+
+  const handleChangePage = (event, newPage) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  const getRoleColor = (role) => {
+    switch (role) {
+      case 'admin':
+        return theme.palette.error.main;
+      case 'teacher':
+        return theme.palette.warning.main;
+      default:
+        return theme.palette.success.main;
+    }
+  };
 
   return (
-    <div className="user-manager">
-      <header className="manager-header">
-        <h1>Gerenciamento de Usuários</h1>
-        <div className="header-actions">
-          <div className="search-bar">
-            <i className="fas fa-search"></i>
-            <input
-              type="text"
-              placeholder="Buscar usuários..."
-              value={searchTerm}
-              onChange={handleSearch}
-            />
-          </div>
-          <button 
-            className="add-user-button"
-            onClick={() => setShowAddUser(true)}
+    <Box>
+      <Paper
+        sx={{
+          p: 2,
+          background: 'linear-gradient(45deg, rgba(0,255,0,0.05) 0%, rgba(0,255,0,0.02) 100%)',
+          border: '1px solid rgba(0,255,0,0.2)',
+        }}
+      >
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+          <Typography variant="h6" color="primary">
+            Gerenciador de Usuários
+          </Typography>
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenDialog()}
+            sx={{
+              background: 'linear-gradient(45deg, #00ff00 30%, #39ff14 90%)',
+              boxShadow: '0 0 10px rgba(0,255,0,0.3)',
+            }}
           >
-            <i className="fas fa-user-plus"></i>
-            Adicionar Usuário
-          </button>
-        </div>
-      </header>
+            Novo Usuário
+          </Button>
+        </Box>
 
-      {selectedUsers.length > 0 && (
-        <div className="bulk-actions">
-          <span>{selectedUsers.length} usuários selecionados</span>
-          <button 
-            className="delete-button"
-            onClick={handleDeleteUsers}
-          >
-            <i className="fas fa-trash"></i>
-            Excluir Selecionados
-          </button>
-        </div>
-      )}
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Nome</TableCell>
+                <TableCell>Email</TableCell>
+                <TableCell>Função</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell>Ações</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {users
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell>{user.name}</TableCell>
+                    <TableCell>{user.email}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={user.role}
+                        size="small"
+                        sx={{
+                          bgcolor: `${getRoleColor(user.role)}20`,
+                          color: getRoleColor(user.role),
+                          border: `1px solid ${getRoleColor(user.role)}40`,
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={user.status}
+                        size="small"
+                        sx={{
+                          bgcolor:
+                            user.status === 'active'
+                              ? 'rgba(0,255,0,0.1)'
+                              : 'rgba(255,0,0,0.1)',
+                          color:
+                            user.status === 'active'
+                              ? theme.palette.success.main
+                              : theme.palette.error.main,
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <IconButton
+                        onClick={() => handleOpenDialog(user)}
+                        sx={{ color: theme.palette.primary.main }}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                      <IconButton
+                        onClick={() => handleToggleStatus(user)}
+                        sx={{
+                          color:
+                            user.status === 'active'
+                              ? theme.palette.error.main
+                              : theme.palette.success.main,
+                        }}
+                      >
+                        {user.status === 'active' ? <LockIcon /> : <LockOpenIcon />}
+                      </IconButton>
+                      <IconButton
+                        onClick={() => handleDelete(user)}
+                        sx={{ color: theme.palette.error.main }}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
 
-      <div className="users-table">
-        <div className="table-header">
-          <label className="checkbox-container">
-            <input
-              type="checkbox"
-              checked={selectedUsers.length === filteredUsers.length}
-              onChange={handleSelectAll}
+        <TablePagination
+          rowsPerPageOptions={[5, 10, 25]}
+          component="div"
+          count={users.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+        />
+      </Paper>
+
+      {/* Dialog para criar/editar usuário */}
+      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {editingUser ? 'Editar Usuário' : 'Novo Usuário'}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              fullWidth
+              label="Nome"
+              name="name"
+              value={formData.name}
+              onChange={handleInputChange}
             />
-            <span className="checkmark"></span>
-          </label>
-          <span className="header-name">Nome</span>
-          <span className="header-email">Email</span>
-          <span className="header-role">Função</span>
-          <span className="header-status">Status</span>
-          <span className="header-actions">Ações</span>
-        </div>
-
-        <div className="table-body">
-          {filteredUsers.map(user => (
-            <div key={user.id} className="table-row">
-              <label className="checkbox-container">
-                <input
-                  type="checkbox"
-                  checked={selectedUsers.includes(user.id)}
-                  onChange={() => handleSelectUser(user.id)}
-                />
-                <span className="checkmark"></span>
-              </label>
-              
-              <span className="user-name">
-                <img 
-                  src={user.avatar_url || '/default-avatar.png'} 
-                  alt={user.name} 
-                  className="user-avatar"
-                />
-                {user.name}
-              </span>
-              
-              <span className="user-email">{user.email}</span>
-              
-              <span className="user-role">
-                <select
-                  value={user.role}
-                  onChange={(e) => handleUpdateRole(user.id, e.target.value)}
-                >
-                  <option value="student">Estudante</option>
-                  <option value="instructor">Instrutor</option>
-                  <option value="admin">Administrador</option>
-                </select>
-              </span>
-              
-              <span className={`user-status ${user.status}`}>
-                {user.status === 'active' ? 'Ativo' : 'Inativo'}
-              </span>
-              
-              <div className="row-actions">
-                <button className="action-button">
-                  <i className="fas fa-edit"></i>
-                </button>
-                <button className="action-button">
-                  <i className="fas fa-key"></i>
-                </button>
-                <button className="action-button delete">
-                  <i className="fas fa-trash"></i>
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {showAddUser && (
-        <div className="modal-overlay">
-          <div className="add-user-modal">
-            <h2>Adicionar Novo Usuário</h2>
-            <form onSubmit={handleAddUser}>
-              <div className="form-group">
-                <label>Nome</label>
-                <input
-                  type="text"
-                  value={newUser.name}
-                  onChange={(e) => setNewUser(prev => ({
-                    ...prev,
-                    name: e.target.value
-                  }))}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Email</label>
-                <input
-                  type="email"
-                  value={newUser.email}
-                  onChange={(e) => setNewUser(prev => ({
-                    ...prev,
-                    email: e.target.value
-                  }))}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Função</label>
-                <select
-                  value={newUser.role}
-                  onChange={(e) => setNewUser(prev => ({
-                    ...prev,
-                    role: e.target.value
-                  }))}
-                >
-                  <option value="student">Estudante</option>
-                  <option value="instructor">Instrutor</option>
-                  <option value="admin">Administrador</option>
-                </select>
-              </div>
-
-              <div className="modal-actions">
-                <button type="submit" className="save-button">
-                  Adicionar Usuário
-                </button>
-                <button 
-                  type="button" 
-                  className="cancel-button"
-                  onClick={() => setShowAddUser(false)}
-                >
-                  Cancelar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
+            <TextField
+              fullWidth
+              label="Email"
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleInputChange}
+            />
+            <FormControl fullWidth>
+              <InputLabel>Função</InputLabel>
+              <Select
+                name="role"
+                value={formData.role}
+                onChange={handleInputChange}
+                label="Função"
+              >
+                <MenuItem value="admin">Administrador</MenuItem>
+                <MenuItem value="teacher">Professor</MenuItem>
+                <MenuItem value="student">Estudante</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl fullWidth>
+              <InputLabel>Status</InputLabel>
+              <Select
+                name="status"
+                value={formData.status}
+                onChange={handleInputChange}
+                label="Status"
+              >
+                <MenuItem value="active">Ativo</MenuItem>
+                <MenuItem value="inactive">Inativo</MenuItem>
+              </Select>
+            </FormControl>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog}>Cancelar</Button>
+          <Button
+            onClick={handleSubmit}
+            variant="contained"
+            sx={{
+              background: 'linear-gradient(45deg, #00ff00 30%, #39ff14 90%)',
+            }}
+          >
+            {editingUser ? 'Atualizar' : 'Criar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 };
 
