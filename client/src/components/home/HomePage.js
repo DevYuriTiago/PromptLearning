@@ -27,30 +27,31 @@ const HomePage = () => {
 
   const loadContent = async () => {
     try {
-      const { data: { user } } = await authService.getCurrentUser();
-      if (!user) {
+      const currentUser = await authService.getCurrentUser();
+      if (!currentUser) {
         navigate('/login');
         return;
       }
 
-      // Carregar módulos em destaque
-      const featured = await contentService.getFeaturedModules();
-      
-      // Carregar módulos em progresso do usuário
-      const progress = await contentService.getUserProgress(user.id);
-      const inProgress = progress.filter(p => !p.completed);
-      
-      // Carregar recomendações baseadas no histórico
-      const recommended = await contentService.getRecommendedModules(user.id);
-      
-      // Carregar módulos populares
-      const popular = await contentService.getPopularModules();
-      
-      // Carregar lançamentos
-      const newReleases = await contentService.getNewReleases();
-      
-      // Carregar categorias
-      const categories = await contentService.getCategories();
+      // Carregar módulos
+      const { data: allModules, error: modulesError } = await contentService.getModules();
+      if (modulesError) throw modulesError;
+
+      // Carregar progresso do usuário
+      const { data: progress, error: progressError } = await contentService.getStudentProgress(currentUser.id);
+      if (progressError) throw progressError;
+
+      // Filtrar módulos
+      const featured = allModules?.filter(m => m.featured) || [];
+      const inProgress = progress?.filter(p => p.status === 'in_progress').map(p => ({
+        ...p.module,
+        progress: p.progress
+      })) || [];
+      const recommended = allModules?.filter(m => m.recommended) || [];
+      const popular = allModules?.sort((a, b) => b.views - a.views).slice(0, 5) || [];
+      const newReleases = allModules?.sort((a, b) => 
+        new Date(b.created_at) - new Date(a.created_at)
+      ).slice(0, 5) || [];
 
       setModules({
         featured,
@@ -59,7 +60,11 @@ const HomePage = () => {
         popular,
         newReleases
       });
-      setCategories(categories);
+
+      // Carregar categorias
+      const uniqueCategories = [...new Set(allModules?.map(m => m.category))];
+      setCategories(uniqueCategories);
+
       setLoading(false);
     } catch (error) {
       console.error('Erro ao carregar conteúdo:', error);
@@ -137,9 +142,9 @@ const HomePage = () => {
 
           {categories.map(category => (
             <ModuleRow
-              key={category.id}
-              title={category.name}
-              modules={modules[category.id] || []}
+              key={category}
+              title={category}
+              modules={modules.featured.filter(m => m.category === category)}
             />
           ))}
         </>

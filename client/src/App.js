@@ -1,7 +1,6 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
-import { authService } from './services/supabaseService';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { useAuth } from './hooks/useAuth';
 import './App.css';
 
 // Layout Components
@@ -28,60 +27,7 @@ import AnalyticsDashboard from './components/admin/AnalyticsDashboard';
 import UserManager from './components/admin/UserManager';
 
 function App() {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const checkUser = async () => {
-      try {
-        const { data: { session }, error } = await authService.supabase.auth.getSession();
-        
-        if (error) {
-          console.error('Error checking session:', error);
-          if (mounted) {
-            setUser(null);
-            setLoading(false);
-          }
-          return;
-        }
-
-        if (session?.user) {
-          const currentUser = await authService.getCurrentUser();
-          if (mounted) {
-            setUser(currentUser);
-          }
-        }
-      } catch (error) {
-        console.error('Error checking user:', error);
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    checkUser();
-
-    const {
-      data: { subscription },
-    } = authService.supabase.auth.onAuthStateChange(async (event, session) => {
-      if (!mounted) return;
-
-      if (event === 'SIGNED_IN' && session?.user) {
-        const currentUser = await authService.getCurrentUser();
-        setUser(currentUser);
-      } else if (event === 'SIGNED_OUT') {
-        setUser(null);
-      }
-    });
-
-    return () => {
-      mounted = false;
-      subscription?.unsubscribe();
-    };
-  }, []);
+  const { session, loading } = useAuth();
 
   if (loading) {
     return (
@@ -93,84 +39,49 @@ function App() {
   }
 
   return (
-    <Router>
-      <div className="app">
-        {user && <Navbar user={user} />}
-        
-        <div className="main-content">
-          {user && <Sidebar user={user} />}
-          
-          <div className="content-area">
-            <Routes>
-              {/* Rotas Públicas */}
-              <Route path="/login" element={
-                !user ? <LoginPage /> : <Navigate to="/" />
-              } />
-              <Route path="/register" element={
-                !user ? <RegisterPage /> : <Navigate to="/" />
-              } />
+    <div className="app">
+      {session ? (
+        <>
+          <Navbar />
+          <div className="main-content">
+            <Sidebar />
+            <div className="content-area">
+              <Routes>
+                {/* Public Routes */}
+                <Route path="/login" element={<Navigate to="/" replace />} />
+                <Route path="/register" element={<Navigate to="/" replace />} />
 
-              {/* Rotas Protegidas - Estudante */}
-              <Route path="/" element={
-                <ProtectedRoute user={user}>
-                  <HomePage />
-                </ProtectedRoute>
-              } />
-              <Route path="/profile" element={
-                <ProtectedRoute user={user}>
-                  <ProfilePage />
-                </ProtectedRoute>
-              } />
-              <Route path="/achievements" element={
-                <ProtectedRoute user={user}>
-                  <AchievementsPage />
-                </ProtectedRoute>
-              } />
-              <Route path="/module/:moduleId" element={
-                <ProtectedRoute user={user}>
-                  <ModuleViewer />
-                </ProtectedRoute>
-              } />
-              <Route path="/module/:moduleId/details" element={
-                <ProtectedRoute user={user}>
-                  <ModuleDetails />
-                </ProtectedRoute>
-              } />
+                {/* Protected Routes */}
+                <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+                <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+                <Route path="/achievements" element={<ProtectedRoute><AchievementsPage /></ProtectedRoute>} />
+                <Route path="/module/:id" element={<ProtectedRoute><ModuleDetails /></ProtectedRoute>} />
+                <Route path="/module/:id/view" element={<ProtectedRoute><ModuleViewer /></ProtectedRoute>} />
+                <Route path="/settings" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+                <Route path="/notes" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+                <Route path="/category/:category" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+                <Route path="/completed" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+                <Route path="/favorites" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
+                <Route path="/in-progress" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
 
-              {/* Rotas Protegidas - Admin */}
-              <Route path="/admin" element={
-                <ProtectedRoute user={user} requiredRole="admin">
-                  <AdminDashboard />
-                </ProtectedRoute>
-              } />
-              <Route path="/admin/content" element={
-                <ProtectedRoute user={user} requiredRole="admin">
-                  <ContentManager />
-                </ProtectedRoute>
-              } />
-              <Route path="/admin/pdf-viewer" element={
-                <ProtectedRoute user={user} requiredRole="admin">
-                  <PDFViewer />
-                </ProtectedRoute>
-              } />
-              <Route path="/admin/analytics" element={
-                <ProtectedRoute user={user} requiredRole="admin">
-                  <AnalyticsDashboard />
-                </ProtectedRoute>
-              } />
-              <Route path="/admin/users" element={
-                <ProtectedRoute user={user} requiredRole="admin">
-                  <UserManager />
-                </ProtectedRoute>
-              } />
-
-              {/* Rota 404 */}
-              <Route path="*" element={<Navigate to="/" />} />
-            </Routes>
+                {/* Admin Routes */}
+                <Route path="/admin" element={<ProtectedRoute adminOnly><AdminDashboard /></ProtectedRoute>} />
+                <Route path="/admin/content" element={<ProtectedRoute adminOnly><ContentManager /></ProtectedRoute>} />
+                <Route path="/admin/pdf/:id" element={<ProtectedRoute adminOnly><PDFViewer /></ProtectedRoute>} />
+                <Route path="/admin/analytics" element={<ProtectedRoute adminOnly><AnalyticsDashboard /></ProtectedRoute>} />
+                <Route path="/admin/users" element={<ProtectedRoute adminOnly><UserManager /></ProtectedRoute>} />
+              </Routes>
+            </div>
           </div>
-        </div>
-      </div>
-    </Router>
+        </>
+      ) : (
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/register" element={<RegisterPage />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      )}
+    </div>
   );
 }
 

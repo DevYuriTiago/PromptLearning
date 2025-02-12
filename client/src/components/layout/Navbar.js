@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { authService } from '../../services/supabaseService';
+import { useAuth } from '../../hooks/useAuth';
 import './Navbar.css';
 
-const Navbar = ({ user }) => {
+const Navbar = () => {
   const navigate = useNavigate();
+  const { session, signOut } = useAuth();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
   const handleLogout = async () => {
     try {
-      await authService.signOut();
+      await signOut();
       navigate('/login');
     } catch (error) {
       console.error('Erro ao fazer logout:', error);
@@ -24,6 +25,12 @@ const Navbar = ({ user }) => {
     }
   };
 
+  const toggleProfileMenu = () => {
+    setShowProfileMenu(!showProfileMenu);
+  };
+
+  const userName = session?.user?.user_metadata?.name || session?.user?.email || 'Usuário';
+
   return (
     <nav className="navbar">
       <div className="navbar-left">
@@ -34,7 +41,7 @@ const Navbar = ({ user }) => {
           <Link to="/">Início</Link>
           <Link to="/modules">Módulos</Link>
           <Link to="/achievements">Conquistas</Link>
-          {user?.user_metadata?.isAdmin && (
+          {session?.user?.user_metadata?.isAdmin && (
             <Link to="/admin" className="admin-link">Admin</Link>
           )}
         </div>
@@ -65,28 +72,24 @@ const Navbar = ({ user }) => {
         <div className="profile-menu">
           <button 
             className="profile-btn"
-            onClick={() => setShowProfileMenu(!showProfileMenu)}
+            onClick={toggleProfileMenu}
           >
             <img 
-              src={user.user_metadata?.avatar_url || '/default-avatar.png'} 
+              src={session?.user?.user_metadata?.avatar_url || '/default-avatar.png'} 
               alt="Avatar" 
               className="profile-avatar"
             />
-            <span className="profile-name">{user.user_metadata?.full_name || 'Usuário'}</span>
+            <span className="profile-name">{userName}</span>
             <i className={`fas fa-chevron-${showProfileMenu ? 'up' : 'down'}`}></i>
           </button>
 
           {showProfileMenu && (
             <div className="profile-dropdown">
-              <Link to="/profile" onClick={() => setShowProfileMenu(false)}>
+              <Link to="/profile" className="dropdown-item">
                 <i className="fas fa-user"></i>
-                Meu Perfil
+                Perfil
               </Link>
-              <Link to="/settings" onClick={() => setShowProfileMenu(false)}>
-                <i className="fas fa-cog"></i>
-                Configurações
-              </Link>
-              <button onClick={handleLogout} className="logout-btn">
+              <button onClick={handleLogout} className="dropdown-item">
                 <i className="fas fa-sign-out-alt"></i>
                 Sair
               </button>

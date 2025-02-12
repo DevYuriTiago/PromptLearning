@@ -1,3 +1,184 @@
+/* AdminDashboard.css */
+.MuiDrawer-paper {
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(10px) !important;
+}
+
+.MuiListItem-root {
+  border-radius: 8px !important;
+  margin: 4px 8px !important;
+}
+
+.MuiListItem-root.Mui-selected {
+  background: linear-gradient(45deg, rgba(25, 118, 210, 0.08), rgba(25, 118, 210, 0.12)) !important;
+}
+
+.MuiListItemIcon-root {
+  color: #1976d2 !important;
+  min-width: 40px !important;
+}
+
+.MuiTypography-root {
+  font-family: 'Inter', sans-serif !important;
+}
+
+.MuiPaper-root {
+  transition: transform 0.2s ease-in-out !important;
+}
+
+.MuiPaper-root:hover {
+  transform: translateY(-2px);
+}
+
+.MuiGrid-root {
+  margin-top: 0 !important;
+}
+
+.MuiAppBar-root {
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(10px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+.MuiToolbar-root {
+  min-height: 64px !important;
+}
+
+.MuiIconButton-root {
+  border-radius: 8px !important;
+}
+
+/* Animações */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.MuiContainer-root {
+  animation: fadeIn 0.3s ease-out;
+}
+
+/* Responsividade */
+@media (max-width: 600px) {
+  .MuiContainer-root {
+    padding: 16px !important;
+  }
+
+  .MuiGrid-item {
+    padding: 8px !important;
+  }
+
+  .MuiPaper-root {
+    padding: 16px !important;
+  }
+
+  .MuiTypography-h6 {
+    font-size: 1.1rem !important;
+  }
+
+  .MuiTypography-body1 {
+    font-size: 0.9rem !important;
+  }
+}
+
+/* Scrollbar personalizada */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(25, 118, 210, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(25, 118, 210, 0.5);
+}
+
+/* Efeitos de hover e foco */
+.MuiListItem-root:hover {
+  background: rgba(25, 118, 210, 0.08) !important;
+}
+
+.MuiIconButton-root:hover {
+  background: rgba(25, 118, 210, 0.08) !important;
+}
+
+/* Cards de estatísticas */
+.stats-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.7));
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.stats-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
+}
+
+.stats-icon {
+  font-size: 2.5rem;
+  color: #1976d2;
+  margin-bottom: 16px;
+}
+
+.stats-value {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #1976d2;
+  margin-bottom: 8px;
+}
+
+.stats-label {
+  color: rgba(0, 0, 0, 0.6);
+  font-size: 0.875rem;
+}
+
+/* Gráficos e visualizações */
+.chart-container {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 16px;
+  padding: 24px;
+  margin-top: 24px;
+  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+}
+
+/* Loading states */
+.loading-placeholder {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+  border-radius: 8px;
+  height: 20px;
+  margin: 8px 0;
+}
+
+@keyframes loading {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
 .admin-dashboard {
   padding: 2rem 4%;
   min-height: calc(100vh - 70px);

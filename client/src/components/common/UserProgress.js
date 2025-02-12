@@ -12,8 +12,26 @@ const UserProgress = ({ userId }) => {
 
   const loadProgress = async () => {
     try {
-      const data = await progressService.getStudentProgress(userId);
-      setProgress(data);
+      if (!userId) {
+        console.error('UserId não fornecido para UserProgress');
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await progressService.getStudentProgress(userId);
+      if (error) throw error;
+
+      const processedProgress = data?.map(item => ({
+        moduleId: item.module?.id,
+        moduleTitle: item.module?.title,
+        sectionId: item.section?.id,
+        sectionTitle: item.section?.title,
+        progress: item.progress || 0,
+        status: item.status || 'not_started',
+        pointsEarned: item.points_earned || 0
+      })) || [];
+
+      setProgress(processedProgress);
     } catch (err) {
       console.error('Erro ao carregar progresso:', err);
     } finally {

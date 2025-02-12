@@ -6,31 +6,166 @@ import { gamificationService } from './gamificationService';
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
 const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error('Missing Supabase environment variables');
-}
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true
-  }
+console.log('Supabase Config:', {
+  url: supabaseUrl ? 'Configurada' : 'Não configurada',
+  key: supabaseAnonKey ? 'Configurada' : 'Não configurada'
 });
 
-// Serviço de Autenticação
-export const authService = {
-  async login(email, password) {
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Supabase URL and Anon Key must be defined in .env file');
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Verificar conexão com Supabase
+supabase.auth.onAuthStateChange((event, session) => {
+  console.log('Supabase Auth State Change:', event, 'Session:', session ? {
+    id: session.user?.id,
+    email: session.user?.email,
+    role: session.user?.user_metadata?.role
+  } : 'No session');
+});
+
+const authService = {
+  supabase,
+
+  async getCurrentUser() {
     try {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      
+      if (user) {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+          
+        if (profileError) throw profileError;
+        return { ...user, profile };
+      }
+      return null;
+    } catch (error) {
+      console.error('Error getting current user:', error);
+      return null;
+    }
+  },
+
+  async login(email, password) {
+    console.log('Attempting login for:', email);
+    try {
+      // Verificar se o usuário existe
+      const { data: existingUser, error: checkError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('email', email)
+        .single();
+
+      if (checkError) {
+        console.log('User not found in profiles:', email);
+      } else {
+        console.log('User found in profiles:', existingUser);
+      }
+
+      // Tentar login
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        password
+        password,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Login error:', error.message);
+        throw error;
+      }
+
+      console.log('Login successful:', {
+        user: data.user?.id,
+        email: data.user?.email,
+        metadata: data.user?.user_metadata
+      });
+
       return data;
     } catch (error) {
-      console.error('Erro no login:', error);
+      console.error('Login error details:', {
+        message: error.message,
+        status: error.status,
+        name: error.name
+      });
+      throw error;
+    }
+  },
+
+  async register(email, password, userData = {}) {
+    console.log('Attempting registration for:', email, 'with data:', userData);
+    try {
+      // Verificar se o usuário já existe
+      const { data: existingUser } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('email', email)
+        .single();
+
+      if (existingUser) {
+        console.log('User already exists in profiles:', existingUser);
+        throw new Error('User already exists');
+      }
+
+      // Criar novo usuário
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            ...userData,
+            isAdmin: email === 'yuritiagotf@gmail.com'
+          }
+        }
+      });
+
+      if (authError) {
+        console.error('Registration auth error:', authError);
+        throw authError;
+      }
+
+      console.log('User registered successfully:', {
+        id: authData.user?.id,
+        email: authData.user?.email,
+        metadata: authData.user?.user_metadata
+      });
+
+      // Criar perfil do usuário
+      if (authData?.user) {
+        const profileData = {
+          id: authData.user.id,
+          email: email,
+          name: userData.name || email.split('@')[0],
+          role: email === 'yuritiagotf@gmail.com' ? 'admin' : 'student',
+          created_at: new Date().toISOString(),
+        };
+
+        console.log('Creating user profile:', profileData);
+
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert([profileData]);
+
+        if (profileError) {
+          console.error('Profile creation error:', profileError);
+          // Se houver erro ao criar o perfil, deleta o usuário
+          await supabase.auth.admin.deleteUser(authData.user.id);
+          throw profileError;
+        }
+
+        console.log('Profile created successfully');
+      }
+
+      return authData;
+    } catch (error) {
+      console.error('Registration error details:', {
+        message: error.message,
+        status: error.status,
+        name: error.name
+      });
       throw error;
     }
   },
@@ -39,100 +174,45 @@ export const authService = {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      console.log('Logout successful');
     } catch (error) {
-      console.error('Erro no logout:', error);
+      console.error('Logout error:', error);
       throw error;
     }
   },
 
-  async getCurrentUser() {
+  async resetPassword(email) {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('auth_id', user.id)
-        .single();
-
-      return { ...user, profile };
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
+      if (error) throw error;
+      console.log('Password reset email sent to:', email);
     } catch (error) {
-      console.error('Erro ao buscar usuário:', error);
-      return null;
+      console.error('Password reset error:', error);
+      throw error;
     }
+  },
+
+  async updatePassword(newPassword) {
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+      if (error) throw error;
+      console.log('Password updated successfully');
+    } catch (error) {
+      console.error('Password update error:', error);
+      throw error;
+    }
+  },
+
+  onAuthStateChange(callback) {
+    return supabase.auth.onAuthStateChange(callback);
   }
 };
 
-// Serviço de Gerenciamento de Conteúdo
-export const contentService = {
-  async uploadPDF(file, moduleInfo) {
-    try {
-      // Processa o PDF para proteção
-      const processedPDF = await contentProtectionService.processPDF(file);
-      
-      // Upload do arquivo processado
-      const filename = `${Date.now()}-${file.name}`;
-      const { data: fileData, error: uploadError } = await supabase.storage
-        .from('pdfs')
-        .upload(filename, processedPDF);
+export { authService };
 
-      if (uploadError) throw uploadError;
-
-      // Extrai texto e identifica seções
-      const arrayBuffer = await file.arrayBuffer();
-      const text = await pdfProcessingService.extractTextFromPDF(arrayBuffer);
-      const sections = pdfProcessingService.identifySections(text);
-      
-      // Cria módulo
-      const { data: module, error: moduleError } = await supabase
-        .from('modules')
-        .insert({
-          ...moduleInfo,
-          pdf_url: fileData.path,
-          order_index: moduleInfo.order_index || 0
-        })
-        .select()
-        .single();
-
-      if (moduleError) throw moduleError;
-
-      // Cria seções e quizzes
-      for (const section of sections) {
-        const { data: sectionData, error: sectionError } = await supabase
-          .from('sections')
-          .insert({
-            module_id: module.id,
-            title: section.title,
-            content: section.content,
-            order_index: section.startLine
-          })
-          .select()
-          .single();
-
-        if (sectionError) throw sectionError;
-
-        // Gera e salva quizzes para a seção
-        const quizzes = pdfProcessingService.generateQuizzes(section.content);
-        if (quizzes.length > 0) {
-          const { error: quizzesError } = await supabase
-            .from('quizzes')
-            .insert(quizzes.map(quiz => ({
-              ...quiz,
-              section_id: sectionData.id
-            })));
-
-          if (quizzesError) throw quizzesError;
-        }
-      }
-
-      return module;
-    } catch (error) {
-      console.error('Erro ao fazer upload do PDF:', error);
-      throw error;
-    }
-  },
-
+const contentService = {
   async getModules() {
     try {
       const { data, error } = await supabase
@@ -140,17 +220,76 @@ export const contentService = {
         .select(`
           *,
           sections (
-            *,
-            quizzes (*)
+            id,
+            title,
+            content,
+            order
           )
         `)
-        .order('order_index');
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data;
+      return { data, error: null };
     } catch (error) {
       console.error('Erro ao buscar módulos:', error);
-      throw error;
+      return { data: null, error };
+    }
+  },
+
+  async getModuleById(moduleId) {
+    try {
+      const { data, error } = await supabase
+        .from('modules')
+        .select(`
+          *,
+          sections (
+            id,
+            title,
+            content,
+            order
+          )
+        `)
+        .eq('id', moduleId)
+        .single();
+
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      console.error('Erro ao buscar módulo:', error);
+      return { data: null, error };
+    }
+  },
+
+  async createModule(moduleData) {
+    try {
+      const { data, error } = await supabase
+        .from('modules')
+        .insert([moduleData])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      console.error('Erro ao criar módulo:', error);
+      return { data: null, error };
+    }
+  },
+
+  async updateModule(moduleId, moduleData) {
+    try {
+      const { data, error } = await supabase
+        .from('modules')
+        .update(moduleData)
+        .eq('id', moduleId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      console.error('Erro ao atualizar módulo:', error);
+      return { data: null, error };
     }
   },
 
@@ -162,55 +301,51 @@ export const contentService = {
         .eq('id', moduleId);
 
       if (error) throw error;
+      return { error: null };
     } catch (error) {
       console.error('Erro ao deletar módulo:', error);
-      throw error;
+      return { error };
     }
-  }
-};
+  },
 
-// Serviço de Progresso do Estudante
-export const progressService = {
-  async updateProgress(userId, moduleId, sectionId, progress) {
+  async uploadPDF(file, moduleInfo) {
     try {
-      const { data, error } = await supabase
-        .from('progress')
-        .upsert({
-          user_id: userId,
-          module_id: moduleId,
-          section_id: sectionId,
-          status: progress.status,
-          score: progress.score || 0,
-          last_position: progress.last_position || 0,
-          completed_at: progress.status === 'completed' ? new Date() : null
-        })
-        .select()
-        .single();
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `pdfs/${fileName}`;
 
+      const { error: uploadError } = await supabase.storage
+        .from('resources')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('resources')
+        .getPublicUrl(filePath);
+
+      const moduleData = {
+        ...moduleInfo,
+        pdf_url: publicUrl,
+        type: 'pdf'
+      };
+
+      const { data, error } = await this.createModule(moduleData);
       if (error) throw error;
 
-      // Atualiza pontos se completou
-      if (progress.status === 'completed') {
-        const { data: module } = await supabase
-          .from('modules')
-          .select('points_reward')
-          .eq('id', moduleId)
-          .single();
-
-        if (module) {
-          await gamificationService.updatePoints(userId, module.points_reward);
-        }
-      }
-
-      return data;
+      return { data, error: null };
     } catch (error) {
-      console.error('Erro ao atualizar progresso:', error);
-      throw error;
+      console.error('Erro ao fazer upload do PDF:', error);
+      return { data: null, error };
     }
   },
 
   async getStudentProgress(userId) {
     try {
+      if (!userId) {
+        throw new Error('UserId é obrigatório');
+      }
+
       const { data, error } = await supabase
         .from('progress')
         .select(`
@@ -228,16 +363,149 @@ export const progressService = {
         .eq('user_id', userId);
 
       if (error) throw error;
-      return data;
+      return { data, error: null };
     } catch (error) {
       console.error('Erro ao buscar progresso:', error);
-      throw error;
+      return { data: null, error };
     }
   }
 };
 
-// Serviço de Fórum
-export const forumService = {
+const progressService = {
+  async getStudentProgress(userId) {
+    try {
+      if (!userId) {
+        throw new Error('UserId é obrigatório');
+      }
+
+      const { data, error } = await supabase
+        .from('progress')
+        .select(`
+          *,
+          module:modules (
+            id,
+            title,
+            points_reward
+          ),
+          section:sections (
+            id,
+            title
+          )
+        `)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      console.error('Erro ao buscar progresso:', error);
+      return { data: null, error };
+    }
+  },
+
+  async updateProgress(userId, moduleId, sectionId, progressData) {
+    try {
+      if (!userId || !moduleId) {
+        throw new Error('UserId e moduleId são obrigatórios');
+      }
+
+      const { data: existingProgress, error: fetchError } = await supabase
+        .from('progress')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('module_id', moduleId)
+        .single();
+
+      if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116 = Not Found
+        throw fetchError;
+      }
+
+      let result;
+      if (existingProgress) {
+        // Atualizar progresso existente
+        const { data, error } = await supabase
+          .from('progress')
+          .update({
+            ...progressData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingProgress.id)
+          .select()
+          .single();
+
+        if (error) throw error;
+        result = { data, error: null };
+      } else {
+        // Criar novo progresso
+        const { data, error } = await supabase
+          .from('progress')
+          .insert([{
+            user_id: userId,
+            module_id: moduleId,
+            section_id: sectionId,
+            ...progressData,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }])
+          .select()
+          .single();
+
+        if (error) throw error;
+        result = { data, error: null };
+      }
+
+      // Atualizar pontos do usuário se necessário
+      if (progressData.points_earned) {
+        const { error: pointsError } = await supabase
+          .from('profiles')
+          .update({
+            total_points: supabase.raw(`total_points + ${progressData.points_earned}`)
+          })
+          .eq('id', userId);
+
+        if (pointsError) throw pointsError;
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Erro ao atualizar progresso:', error);
+      return { data: null, error };
+    }
+  },
+
+  async getModuleProgress(userId, moduleId) {
+    try {
+      if (!userId || !moduleId) {
+        throw new Error('UserId e moduleId são obrigatórios');
+      }
+
+      const { data, error } = await supabase
+        .from('progress')
+        .select(`
+          *,
+          module:modules (
+            id,
+            title,
+            points_reward
+          ),
+          section:sections (
+            id,
+            title
+          )
+        `)
+        .eq('user_id', userId)
+        .eq('module_id', moduleId)
+        .single();
+
+      if (error) throw error;
+      return { data, error: null };
+    } catch (error) {
+      console.error('Erro ao buscar progresso do módulo:', error);
+      return { data: null, error };
+    }
+  }
+};
+
+const forumService = {
   async createTopic(moduleId, userId, title, content) {
     try {
       const { data, error } = await supabase
@@ -305,8 +573,7 @@ export const forumService = {
   }
 };
 
-// Serviço de Administração
-export const adminService = {
+const adminService = {
   async getDashboardStats() {
     try {
       const { data: users } = await supabase
@@ -349,12 +616,11 @@ export const adminService = {
   }
 };
 
+export { contentService, progressService, adminService, forumService };
 export default {
-  supabase,
   authService,
   contentService,
   progressService,
-  forumService,
   adminService,
-  gamificationService
+  forumService
 };

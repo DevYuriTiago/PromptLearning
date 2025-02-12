@@ -16,28 +16,47 @@ const AchievementsPage = () => {
   });
   const [currentUser, setCurrentUser] = useState(null);
   const [leaderboard, setLeaderboard] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const user = await authService.getCurrentUser();
-        setCurrentUser(user);
-
-        if (user) {
-          // Carregar conquistas do usuário
-          const userAchievements = await gamificationService.getUserAchievements(user.id);
-          setAchievements(userAchievements);
-
-          // Carregar estatísticas do usuário
-          const stats = await gamificationService.getUserStats(user.id);
-          setUserStats(stats);
-
-          // Carregar ranking
-          const rankingData = await gamificationService.getLeaderboard();
-          setLeaderboard(rankingData);
+        const currentUser = await authService.getCurrentUser();
+        if (!currentUser) {
+          throw new Error('No user found');
         }
+
+        // Carregar conquistas do usuário
+        const { data: achievements, error: achievementsError } = await supabase
+          .from('achievements')
+          .select('*')
+          .eq('user_id', currentUser.id);
+
+        if (achievementsError) throw achievementsError;
+
+        // Carregar progresso do usuário
+        const { data: progress, error: progressError } = await progressService.getStudentProgress(currentUser.id);
+        if (progressError) throw progressError;
+
+        // Calcular pontos totais
+        const totalPoints = progress?.reduce((acc, p) => acc + (p.points_earned || 0), 0) || 0;
+
+        // Calcular nível e próximo nível
+        const { level, nextLevelPoints } = gamificationService.calculateLevel(totalPoints);
+
+        setUserStats({
+          points: totalPoints,
+          level,
+          nextLevelPoints,
+          achievements: achievements?.length || 0,
+          completedModules: progress?.filter(p => p.status === 'completed').length || 0
+        });
+
+        setAchievements(achievements || []);
+        setLoading(false);
       } catch (error) {
         console.error('Erro ao carregar dados:', error);
+        setLoading(false);
       }
     };
 

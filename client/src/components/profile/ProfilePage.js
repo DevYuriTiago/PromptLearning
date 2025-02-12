@@ -51,25 +51,42 @@ const ProfilePage = () => {
   const loadUserData = async () => {
     try {
       const currentUser = await authService.getCurrentUser();
-      if (currentUser) {
-        setUser(currentUser);
-        setProfile({
-          name: currentUser.profile.name || '',
-          email: currentUser.email,
-          bio: currentUser.profile.bio || ''
-        });
-
-        // Carregar estatísticas
-        const userStats = await gamificationService.getUserStats(currentUser.id);
-        setStats(userStats);
-
-        // Carregar progresso recente
-        const progress = await progressService.getStudentProgress(currentUser.id);
-        setRecentProgress(progress.slice(0, 5)); // Últimos 5 itens
+      if (!currentUser) {
+        throw new Error('No user found');
       }
+
+      setUser(currentUser);
+      setProfile({
+        name: currentUser.profile?.name || '',
+        email: currentUser.email || '',
+        bio: currentUser.profile?.bio || ''
+      });
+
+      // Carregar progresso
+      const { data: progress, error: progressError } = await progressService.getStudentProgress(currentUser.id);
+      if (progressError) throw progressError;
+
+      // Calcular estatísticas
+      const completedModules = progress?.filter(p => p.status === 'completed').length || 0;
+      const totalModules = progress?.length || 0;
+      const points = progress?.reduce((acc, p) => acc + (p.points_earned || 0), 0) || 0;
+
+      // Calcular nível baseado nos pontos
+      const { level, nextLevelPoints } = gamificationService.calculateLevel(points);
+
+      setStats({
+        completedModules,
+        totalModules,
+        points,
+        level,
+        nextLevelPoints
+      });
+
+      // Definir progresso recente
+      setRecentProgress(progress?.slice(0, 5) || []);
+      setLoading(false);
     } catch (error) {
       console.error('Erro ao carregar dados do usuário:', error);
-    } finally {
       setLoading(false);
     }
   };

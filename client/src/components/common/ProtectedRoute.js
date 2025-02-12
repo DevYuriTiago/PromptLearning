@@ -1,18 +1,21 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
-import { authService } from '../../services/supabaseService';
+import { useAuth } from '../../hooks/useAuth';
 
-const ProtectedRoute = ({ user, requiredRole, children }) => {
-  if (!user) {
-    return <Navigate to="/login" />;
+const ProtectedRoute = ({ children }) => {
+  const { session, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="loading-screen">
+        <div className="loader"></div>
+        <p>Carregando...</p>
+      </div>
+    );
   }
 
-  // Se uma role específica é requerida, verifica se o usuário tem essa role
-  if (requiredRole) {
-    const userRole = user.role;
-    if (userRole !== requiredRole) {
-      return <Navigate to="/" />;
-    }
+  if (!session) {
+    return <Navigate to="/login" replace />;
   }
 
   return children;

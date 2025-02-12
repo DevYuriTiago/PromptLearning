@@ -13,7 +13,7 @@ import {
 } from '@mui/material';
 import {
   EmojiEvents,
-  Workspace,
+  Leaderboard as LeaderboardIcon,
   Star
 } from '@mui/icons-material';
 
@@ -47,7 +47,7 @@ const Leaderboard = ({ users, currentUserId }) => {
   return (
     <Paper sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <Workspace sx={{ mr: 1 }} color="primary" />
+        <LeaderboardIcon sx={{ mr: 1 }} color="primary" />
         <Typography variant="h5">
           Ranking de Alunos
         </Typography>
